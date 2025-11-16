@@ -64,6 +64,9 @@ export class FetchProviderPuppeteer extends FetchProvider {
                         '--no-first-run',
                         '--no-zygote',
                         '--disable-extensions',
+                        '--disable-blink-features=AutomationControlled',
+                        '--disable-features=IsolateOrigins,site-per-process',
+                        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     ],
                 });
                 logger.info('✅ Puppeteer browser launched');
@@ -99,6 +102,21 @@ export class FetchProviderPuppeteer extends FetchProvider {
             await page.setUserAgent(
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
             );
+
+            // Hide webdriver property to avoid Cloudflare detection
+            await page.evaluateOnNewDocument(() => {
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined,
+                });
+                // Mock plugins to appear as real browser
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en'],
+                });
+            });
 
             return page;
         }
@@ -264,23 +282,33 @@ export class FetchProviderPuppeteer extends FetchProvider {
     /**
      * Wait for Cloudflare challenge to complete
      */
-    private async waitForCloudflare(page: Page, maxWaitTime = 30000): Promise<void> {
+    private async waitForCloudflare(page: Page, maxWaitTime = 45000): Promise<void> {
         const startTime = Date.now();
+        let lastTitle = '';
 
         while (Date.now() - startTime < maxWaitTime) {
             try {
-                const isChallengePresent = await page.evaluate(() => {
-                    // Check for common Cloudflare challenge indicators
-                    return (
-                        document.title.toLowerCase().includes('just a moment') ||
-                        document.title.toLowerCase().includes('checking your browser') ||
-                        !!document.querySelector('#challenge-running') ||
-                        !!document.querySelector('.cf-browser-verification') ||
-                        !!document.querySelector('div[class*="cloudflare"]')
-                    );
+                const pageInfo = await page.evaluate(() => {
+                    return {
+                        title: document.title,
+                        hasChallenge: (
+                            document.title.toLowerCase().includes('just a moment') ||
+                            document.title.toLowerCase().includes('checking your browser') ||
+                            !!document.querySelector('#challenge-running') ||
+                            !!document.querySelector('.cf-browser-verification') ||
+                            !!document.querySelector('div[class*="cloudflare"]')
+                        ),
+                        url: window.location.href,
+                    };
                 });
 
-                if (!isChallengePresent) {
+                // Log page title changes
+                if (pageInfo.title !== lastTitle) {
+                    logger.info(`📄 Page title: "${pageInfo.title}"`);
+                    lastTitle = pageInfo.title;
+                }
+
+                if (!pageInfo.hasChallenge) {
                     logger.info('Cloudflare challenge passed');
                     return;
                 }
