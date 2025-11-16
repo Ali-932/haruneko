@@ -33,6 +33,8 @@
         "pdfkit": "github:manga-download/pdfkit#v0.17.2",
         "protobufjs": "7.5.4",
         "puppeteer": "^24.29.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
         "swagger-ui-express": "^5.0.1",
         "undici-proxy": "^0.3.0",
         "winston": "^3.14.0",

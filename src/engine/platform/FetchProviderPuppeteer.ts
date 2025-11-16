@@ -1,10 +1,15 @@
-import puppeteer, { type Browser, type Page } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { type Browser, type Page } from 'puppeteer';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ProxyAgent } from 'undici';
 import { FetchProvider, type ScriptInjection } from './FetchProviderCommon.js';
 import { config } from '../../config/settings.js';
 import { logger } from '../../config/logger.js';
 import { CheckAntiScrapingDetection, FetchRedirection } from './AntiScrapingDetection.js';
+
+// Apply stealth plugin to bypass Cloudflare bot detection
+puppeteer.use(StealthPlugin());
 
 /**
  * Puppeteer-based fetch provider for server-side environments
@@ -63,10 +68,6 @@ export class FetchProviderPuppeteer extends FetchProvider {
                         '--disable-gpu',
                         '--no-first-run',
                         '--no-zygote',
-                        '--disable-extensions',
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-features=IsolateOrigins,site-per-process',
-                        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     ],
                 });
                 logger.info('✅ Puppeteer browser launched');
@@ -97,25 +98,10 @@ export class FetchProviderPuppeteer extends FetchProvider {
             const browser = await this.getBrowser();
             const page = await browser.newPage();
 
-            // Set realistic viewport and user agent
-            await page.setViewport({ width: 1920, height: 1080 });
-            await page.setUserAgent(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-            );
-
-            // Hide webdriver property to avoid Cloudflare detection
-            await page.evaluateOnNewDocument(() => {
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-                // Mock plugins to appear as real browser
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-                // Mock languages
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-US', 'en'],
-                });
+            // Set realistic viewport - stealth plugin handles user-agent and other fingerprints
+            await page.setViewport({
+                width: 1920,
+                height: 1080
             });
 
             return page;
