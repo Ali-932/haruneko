@@ -143,8 +143,15 @@ export abstract class MediaScraper<T extends MediaContainer<MediaChild>> {
     public abstract CreatePlugin(storageController: StorageController, settingsManager: SettingsManager): T;
 
     public async Initialize(): Promise<void> {
-        const request = new Request(this.URI.href);
-        return FetchWindowScript(request, '');
+        try {
+            const request = new Request(this.URI.href);
+            return await FetchWindowScript(request, '');
+        } catch (error) {
+            // Initialization failure is non-critical for many scrapers
+            // especially those using AJAX endpoints (like Madara-based sites)
+            // Log warning but don't fail - the actual scraping operations may still work
+            console.warn(`[${this.Identifier}] ⚠️ Initialize failed (non-critical):`, error instanceof Error ? error.message : String(error));
+        }
     }
 
     public get Icon(): string {
