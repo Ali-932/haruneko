@@ -210,6 +210,11 @@ export class FetchProviderPuppeteer extends FetchProvider {
                     };
                 }, request.url, request.method, requestHeaders, body);
 
+                // Debug logging
+                logger.info(`📦 POST response status: ${result.status}`);
+                logger.info(`📦 POST response body length: ${result.body.length}`);
+                logger.info(`📦 POST response body preview: ${result.body.substring(0, 500)}`);
+
                 // Sanitize headers
                 const sanitizedHeaders = this.sanitizeHeaders(result.headers);
 
