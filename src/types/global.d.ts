@@ -36,6 +36,9 @@ declare global {
     type JSONArray<T = JSONElement> = T[];
     type JSONObject<T = JSONElement> = { [key: string]: T };
     type JSONElement = JSONPrimitive | JSONObject | JSONArray;
+
+    // HakuNeko global instance
+    var HakuNeko: import('../engine/HakuNeko').HakuNeko;
 }
 
 export {};

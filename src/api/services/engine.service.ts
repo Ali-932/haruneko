@@ -23,6 +23,9 @@ class EngineService {
             logger.info('🚀 Initializing HakuNeko engine...');
             this.hakuneko = new HakuNeko();
 
+            // Expose HakuNeko instance globally for legacy code that expects it
+            (globalThis as any).HakuNeko = this.hakuneko;
+
             // Initialize with empty frontends array (no UI needed)
             await this.hakuneko.Initialze([]);
 
