@@ -172,18 +172,23 @@ export class FetchProviderPuppeteer extends FetchProvider {
             if (request.method && request.method !== 'GET' && request.method !== 'HEAD') {
                 logger.info(`🔄 Handling ${request.method} request with Puppeteer evaluate...`);
 
-                // First, navigate to the origin to establish cookies and bypass Cloudflare
-                const baseUrl = new URL(request.url).origin;
-                const initialResponse = await page.goto(baseUrl, {
+                // Extract the referer from headers to navigate to the correct page
+                // For WordPress Madara AJAX endpoints, the referer is the manga page
+                const referer = request.headers.get('Referer');
+                const pageToVisit = referer || new URL(request.url).origin;
+
+                logger.info(`🌐 Navigating to ${pageToVisit} to establish session...`);
+
+                const initialResponse = await page.goto(pageToVisit, {
                     waitUntil: 'domcontentloaded',
                     timeout: config.puppeteer.timeout,
                 });
 
                 if (!initialResponse) {
-                    throw new Error(`Failed to load ${baseUrl}`);
+                    throw new Error(`Failed to load ${pageToVisit}`);
                 }
 
-                // Wait for Cloudflare challenge on the base page
+                // Wait for Cloudflare challenge on the page
                 await this.waitForCloudflare(page);
                 logger.info('✅ Cloudflare challenge passed, making POST request...');
 
