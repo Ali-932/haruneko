@@ -243,8 +243,8 @@ class HaruNekoDownloadService:
         Tries exact match first, then normalized match (case-insensitive, no punctuation)
         """
         try:
-            # Search with the manga name
-            results = self._search_manga(source_id, manga_name, page=1, limit=50)
+            # Search with the manga name - increase limit to get more results
+            results = self._search_manga(source_id, manga_name, page=1, limit=100)
 
             if not results:
                 return None
@@ -263,8 +263,25 @@ class HaruNekoDownloadService:
                     print(f"  Match type: Normalized (fuzzy)")
                     return manga
 
-            # Strategy 3: Return first result as fallback
-            print(f"  Match type: First result (no exact match)")
+            # Strategy 3: Partial match - find best match that contains the query
+            # Prioritize shorter titles (more likely to be the main series)
+            partial_matches = []
+            for manga in results:
+                title_lower = manga.get("title", "").lower()
+                if manga_name_lower in title_lower:
+                    partial_matches.append((manga, len(manga.get("title", ""))))
+
+            if partial_matches:
+                # Sort by title length (shorter = better)
+                partial_matches.sort(key=lambda x: x[1])
+                best_match = partial_matches[0][0]
+                print(f"  Match type: Partial (shortest match containing query)")
+                print(f"  Selected: {best_match.get('title')}")
+                return best_match
+
+            # Strategy 4: Return first result as last resort
+            print(f"  Match type: First result (no match found)")
+            print(f"  WARNING: This might not be what you want!")
             return results[0]
 
         except Exception as e:

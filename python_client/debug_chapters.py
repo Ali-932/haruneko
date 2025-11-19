@@ -9,16 +9,30 @@ service = HaruNekoDownloadService()
 
 # Get manga info
 print("Searching for One Piece on mangahere...")
-results = service._search_manga("mangahere", "One Piece", page=1, limit=10)
+results = service._search_manga("mangahere", "One Piece", page=1, limit=50)
 
 if not results:
     print("No results found!")
     exit(1)
 
-manga = results[0]
-manga_id = manga["id"]
+print(f"\nFound {len(results)} search results:")
+for i, result in enumerate(results[:10], 1):
+    print(f"{i}. {result['title']}")
 
-print(f"\nFound: {manga['title']}")
+# Look for exact match
+manga = None
+for result in results:
+    if result['title'].lower() == "one piece":
+        manga = result
+        print(f"\n✓ Found exact match: {manga['title']}")
+        break
+
+if not manga:
+    print("\n✗ No exact match found, using first result")
+    manga = results[0]
+
+manga_id = manga["id"]
+print(f"\nUsing: {manga['title']}")
 print(f"Getting chapters...")
 
 # Get all chapters
