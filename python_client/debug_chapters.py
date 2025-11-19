@@ -67,18 +67,26 @@ for search_num in [1, 2, 3]:
             found.append(ch)
             print(f"  ✓ Found by number field: {ch.get('title')}")
 
-        # Check if title contains the pattern
+        # Check if title contains the pattern (using same patterns as actual service)
         import re
         title = ch.get('title', '')
         patterns = [
-            r'(?:Chapter|Ch\.?|Episode|Ep\.?)\s*' + str(search_num) + r'(?:\D|$)',
-            r'^' + str(search_num) + r'\s*[-:]',
+            r'(?:Chapter|Ch\.?|Episode|Ep\.?)\s*(\d+(?:\.\d+)?)',  # "Chapter 1", "Ch.828"
+            r'^(\d+(?:\.\d+)?)\s*[-:]',  # "1 -", "1.5:"
+            r'^(\d+(?:\.\d+)?)\s*$',  # Just a number
         ]
         for pattern in patterns:
-            if re.search(pattern, title, re.IGNORECASE):
-                if ch not in found:
-                    found.append(ch)
-                    print(f"  ✓ Found by pattern: {title}")
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                try:
+                    chapter_num = float(match.group(1))
+                    if chapter_num == float(search_num):
+                        if ch not in found:
+                            found.append(ch)
+                            print(f"  ✓ Found by pattern '{pattern}': {title}")
+                            print(f"    Extracted: {match.group(1)} → {chapter_num}")
+                except (ValueError, IndexError):
+                    pass
 
     if not found:
         print(f"  ✗ Chapter {search_num} not found!")
