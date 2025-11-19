@@ -282,13 +282,39 @@ class EngineService {
             if (currentChapters.length === 0) {
                 logger.info(`🔄 No cached chapters found, fetching from source...`);
                 logger.info(`⏳ Calling manga.Update() to fetch chapter list...`);
+                logger.info(`[DEBUG] Manga ID: ${mangaId}`);
+                logger.info(`[DEBUG] Manga Title: ${manga.Title}`);
+                logger.info(`[DEBUG] Source: ${sourceId}`);
 
                 const updateStartTime = Date.now();
-                await manga.Update();
-                const updateDuration = Date.now() - updateStartTime;
+                try {
+                    await manga.Update();
+                    const updateDuration = Date.now() - updateStartTime;
 
-                const updatedChapters = manga.Entries.Value;
-                logger.info(`✅ Update completed in ${updateDuration}ms, fetched ${updatedChapters.length} chapters`);
+                    const updatedChapters = manga.Entries.Value;
+                    logger.info(`✅ Update completed in ${updateDuration}ms, fetched ${updatedChapters.length} chapters`);
+
+                    // If still 0 chapters, log more details for debugging
+                    if (updatedChapters.length === 0) {
+                        logger.warn(`⚠️  Update() returned 0 chapters - this may indicate:`);
+                        logger.warn(`   - Website structure changed`);
+                        logger.warn(`   - Cloudflare/anti-bot blocking`);
+                        logger.warn(`   - Invalid manga ID format`);
+                        logger.warn(`   - Manga no longer available on source`);
+                        logger.info(`[DEBUG] Manga.Entries.Value type: ${typeof manga.Entries.Value}`);
+                        logger.info(`[DEBUG] Manga.Entries.Value is Array: ${Array.isArray(manga.Entries.Value)}`);
+                    }
+                } catch (updateError) {
+                    const updateDuration = Date.now() - updateStartTime;
+                    logger.error(`❌ manga.Update() threw error after ${updateDuration}ms:`, {
+                        error: updateError instanceof Error ? updateError.message : String(updateError),
+                        stack: updateError instanceof Error ? updateError.stack : undefined,
+                        mangaId,
+                        sourceId,
+                    });
+                    // Re-throw to be handled by outer catch
+                    throw updateError;
+                }
             } else {
                 logger.info(`✅ Using ${currentChapters.length} cached chapters`);
             }

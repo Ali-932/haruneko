@@ -33,4 +33,9 @@ coverage/
 # Old project files
 web/
 app/
-docs/
+docs/__pycache__/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
