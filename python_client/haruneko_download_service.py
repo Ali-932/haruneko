@@ -317,7 +317,7 @@ class HaruNekoDownloadService:
             # Try to find chapter by number
             matched_chapter = None
 
-            # Strategy 1: Match by chapter.number field
+            # Strategy 1: Match by chapter.number field (BEST)
             for chapter in all_chapters:
                 chapter_number = chapter.get("number")
                 if chapter_number is not None:
@@ -328,19 +328,33 @@ class HaruNekoDownloadService:
                     except (ValueError, TypeError):
                         pass
 
-            # Strategy 2: Extract number from title
+            # Strategy 2: Extract chapter number from title patterns
+            # Only match chapter number patterns, not random numbers in descriptions
             if not matched_chapter:
                 for chapter in all_chapters:
                     title = chapter.get("title", "")
-                    # Extract numbers from title (e.g., "Chapter 1", "Ch. 1.5")
-                    numbers = re.findall(r'\d+(?:\.\d+)?', title)
-                    for num_str in numbers:
-                        try:
-                            if float(num_str) == requested_float:
-                                matched_chapter = chapter
-                                break
-                        except ValueError:
-                            pass
+
+                    # Try common chapter patterns:
+                    # "Chapter 1", "Ch. 1", "Ch.828", "Episode 1", etc.
+                    patterns = [
+                        r'(?:Chapter|Ch\.?|Episode|Ep\.?)\s*(\d+(?:\.\d+)?)',  # "Chapter 1", "Ch.828"
+                        r'^(\d+(?:\.\d+)?)\s*[-:]',  # "1 -", "1.5:"
+                        r'^(\d+(?:\.\d+)?)\s*$',  # Just a number
+                    ]
+
+                    for pattern in patterns:
+                        match = re.search(pattern, title, re.IGNORECASE)
+                        if match:
+                            try:
+                                chapter_num = float(match.group(1))
+                                if chapter_num == requested_float:
+                                    matched_chapter = chapter
+                                    break
+                            except (ValueError, IndexError):
+                                pass
+                        if matched_chapter:
+                            break
+
                     if matched_chapter:
                         break
 
