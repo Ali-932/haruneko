@@ -275,8 +275,14 @@ class HarunekoMangaService:
                 try:
                     chapter_number = float(chapter_match.group(1))
 
-                    # Match both exact (8.1 == 8.1) and integer (8 == 8.0)
-                    if user_number == chapter_number or int(user_number) == int(chapter_number):
+                    # Exact match first (e.g., 8.1 matches only 8.1)
+                    if user_number == chapter_number:
+                        return chap
+
+                    # Integer match only if both are integers (e.g., 8 matches 8.0 but not 8.1)
+                    if (user_number == int(user_number) and
+                        chapter_number == int(chapter_number) and
+                        int(user_number) == int(chapter_number)):
                         return chap
                 except (ValueError, TypeError):
                     continue
