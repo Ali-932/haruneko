@@ -8,8 +8,8 @@ from haruneko_download_service import HaruNekoDownloadService
 service = HaruNekoDownloadService()
 
 # Get manga info
-print("Searching for One Piece on mangahere...")
-results = service._search_manga("mangahere", "One Piece", page=1, limit=50)
+print("Searching for abara on mangahere...")
+results = service._search_manga("mangahere", "berserk", page=1, limit=50)
 
 if not results:
     print("No results found!")
@@ -22,7 +22,7 @@ for i, result in enumerate(results[:10], 1):
 # Look for exact match
 manga = None
 for result in results:
-    if result['title'].lower() == "one piece":
+    if result['title'].lower() == "berserk":
         manga = result
         print(f"\n✓ Found exact match: {manga['title']}")
         break

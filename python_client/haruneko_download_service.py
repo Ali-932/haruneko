@@ -473,7 +473,7 @@ class HaruNekoDownloadService:
         source_id: str,
         manga_id_raw: str,
         chapter_ids: List[str],
-        format: str = "cbz",
+        format: str = "images",
         options: Optional[Dict[str, Any]] = None
     ) -> Dict:
         """

@@ -97,10 +97,10 @@ class HarunekoMangaService:
         """
         def _make_request():
             url = f"{self.base_url}/api/v1/sources/{source}/search"
-            print(f"[DEBUG] Search URL: {url}?query={query}")
+            print(f"[DEBUG] Search URL: {url}?q={query}")
             resp = self.session.get(
                 url,
-                params={"query": query},
+                params={"q": query},
                 timeout=30
             )
             print(f"[DEBUG] Search response status: {resp.status_code}")
