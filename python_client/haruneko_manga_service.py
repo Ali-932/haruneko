@@ -317,6 +317,80 @@ class HarunekoMangaService:
         else:
             return data
 
+    def wait_for_download(
+        self,
+        download_id: str,
+        poll_interval: float = 2.0,
+        max_wait: int = 600
+    ) -> Dict:
+        """
+        Wait for a download to complete, polling for status
+
+        Args:
+            download_id: Download identifier
+            poll_interval: Seconds between status checks (default: 2.0)
+            max_wait: Maximum seconds to wait (default: 600 = 10 minutes)
+
+        Returns:
+            Dict with success status, error message, and final status
+        """
+        start_time = time.time()
+        attempts = 0
+
+        while True:
+            attempts += 1
+            elapsed = time.time() - start_time
+
+            # Check timeout
+            if elapsed > max_wait:
+                return {
+                    "success": False,
+                    "error": f"Download timed out after {max_wait}s",
+                    "status": "timeout",
+                    "download_id": download_id
+                }
+
+            try:
+                # Get current status
+                status_data = self.get_download_status(download_id)
+                status = status_data.get('status', 'unknown')
+
+                print(f"[POLL] Attempt {attempts} ({elapsed:.1f}s) - Status: {status}")
+
+                # Check for completion
+                if status == 'completed':
+                    return {
+                        "success": True,
+                        "error": None,
+                        "status": status,
+                        "download_id": download_id,
+                        "file_path": status_data.get('filePath'),
+                        "data": status_data
+                    }
+                elif status in ['failed', 'error', 'cancelled']:
+                    error_msg = status_data.get('error', f'Download {status}')
+                    return {
+                        "success": False,
+                        "error": error_msg,
+                        "status": status,
+                        "download_id": download_id,
+                        "data": status_data
+                    }
+                elif status in ['queued', 'downloading', 'processing', 'pending']:
+                    # Still in progress, keep polling
+                    progress = status_data.get('progress', 0)
+                    print(f"  Progress: {progress}%")
+                    time.sleep(poll_interval)
+                else:
+                    # Unknown status, keep polling but warn
+                    print(f"  [WARN] Unknown status: {status}")
+                    time.sleep(poll_interval)
+
+            except Exception as e:
+                print(f"[ERROR] Status check failed: {str(e)}")
+                # Don't fail immediately on status check errors
+                time.sleep(poll_interval)
+
     # NOTE: Haruneko API uses a queue-based download system
     # Direct image URL fetching is not available via HTTP API
     # Use queue_download() and get_download_status() instead
@@ -461,34 +535,63 @@ class HarunekoMangaService:
             chapter_title = chosen_chapter["title"]
             print(f"[INFO] Resolved chapter: {chapter_title}")
 
-            # Fetch image URLs
-            print("[INFO] Retrieving image URLs...")
-            image_urls = self.fetch_chapter_pages(manga_id, chapter_id, source)
+            if dry_run:
+                return {
+                    "success": True,
+                    "error": None,
+                    "available_chapters": None,
+                    "images_downloaded": 0,
+                    "folder_path": f"[DRY RUN] Would download: {manga_title_resolved}/{chapter_title}",
+                    "chapter_title": chapter_title
+                }
 
-            if not image_urls:
+            # Queue download via Haruneko download API
+            print("[INFO] Queueing download...")
+            download_result = self.queue_download(
+                manga_id=manga_id,
+                chapter_id=chapter_id,
+                source=source
+            )
+
+            download_id = download_result.get('id')
+            if not download_id:
                 return {
                     "success": False,
-                    "error": "No images returned for that chapter.",
+                    "error": "Failed to queue download - no download ID returned",
                     "available_chapters": None,
                     "images_downloaded": 0,
                     "folder_path": None
                 }
 
-            # Download images
-            print(f"[INFO] Found {len(image_urls)} images. Downloading...")
-            target_dir = self.download_images(
-                manga_title_resolved,
-                chapter_title,
-                image_urls,
-                dry_run=dry_run
-            )
+            print(f"[INFO] Download queued with ID: {download_id}")
+            print("[INFO] Waiting for download to complete...")
+
+            # Wait for download to complete
+            wait_result = self.wait_for_download(download_id)
+
+            if not wait_result["success"]:
+                return {
+                    "success": False,
+                    "error": wait_result["error"],
+                    "available_chapters": None,
+                    "images_downloaded": 0,
+                    "folder_path": None,
+                    "download_id": download_id,
+                    "status": wait_result.get("status")
+                }
+
+            # Download completed successfully
+            file_path = wait_result.get("file_path", "unknown")
+            print(f"[SUCCESS] Download completed: {file_path}")
 
             return {
                 "success": True,
                 "error": None,
                 "available_chapters": None,
-                "images_downloaded": len(image_urls),
-                "folder_path": str(target_dir.resolve())
+                "images_downloaded": wait_result.get("data", {}).get("pageCount", 0),
+                "folder_path": file_path,
+                "download_id": download_id,
+                "chapter_title": chapter_title
             }
 
         except Exception as e:
@@ -688,12 +791,28 @@ class HarunekoMangaService:
                     chapter_title = chosen_chapter["title"]
                     print(f"[INFO] Resolved chapter: {chapter_title}")
 
-                    # Fetch image URLs
-                    print("[INFO] Retrieving image URLs...")
-                    image_urls = self.fetch_chapter_pages(manga_id, chapter_id, source)
+                    if dry_run:
+                        print(f"[DRY RUN] Would download: {chapter_title}")
+                        results["downloaded_chapters"].append({
+                            "chapter_number": chapter_num,
+                            "chapter_title": chapter_title,
+                            "images_downloaded": 0,
+                            "folder_path": f"[DRY RUN] {manga_title_resolved}/{chapter_title}"
+                        })
+                        results["successful_downloads"] += 1
+                        continue
 
-                    if not image_urls:
-                        error_msg = "No images returned for this chapter"
+                    # Queue download via Haruneko download API
+                    print("[INFO] Queueing download...")
+                    download_result = self.queue_download(
+                        manga_id=manga_id,
+                        chapter_id=chapter_id,
+                        source=source
+                    )
+
+                    download_id = download_result.get('id')
+                    if not download_id:
+                        error_msg = "Failed to queue download - no download ID returned"
                         print(f"[ERROR] {error_msg}")
                         results["failed_chapters"].append({
                             "chapter_number": chapter_num,
@@ -702,24 +821,37 @@ class HarunekoMangaService:
                         results["failed_downloads"] += 1
                         continue
 
-                    # Download images
-                    print(f"[INFO] Found {len(image_urls)} images. Downloading...")
-                    target_dir = self.download_images(
-                        manga_title_resolved,
-                        chapter_title,
-                        image_urls,
-                        dry_run=dry_run
-                    )
+                    print(f"[INFO] Download queued with ID: {download_id}")
+                    print("[INFO] Waiting for download to complete...")
+
+                    # Wait for download to complete
+                    wait_result = self.wait_for_download(download_id)
+
+                    if not wait_result["success"]:
+                        error_msg = wait_result["error"]
+                        print(f"[ERROR] {error_msg}")
+                        results["failed_chapters"].append({
+                            "chapter_number": chapter_num,
+                            "error": error_msg,
+                            "download_id": download_id
+                        })
+                        results["failed_downloads"] += 1
+                        continue
+
+                    # Download completed successfully
+                    file_path = wait_result.get("file_path", "unknown")
+                    page_count = wait_result.get("data", {}).get("pageCount", 0)
+                    print(f"[SUCCESS] Download completed: {file_path}")
 
                     # Record success
                     results["downloaded_chapters"].append({
                         "chapter_number": chapter_num,
                         "chapter_title": chapter_title,
-                        "images_downloaded": len(image_urls),
-                        "folder_path": str(target_dir.resolve())
+                        "images_downloaded": page_count,
+                        "folder_path": file_path,
+                        "download_id": download_id
                     })
                     results["successful_downloads"] += 1
-                    print(f"[SUCCESS] Downloaded {len(image_urls)} images to {target_dir}")
 
                 except Exception as e:
                     error_msg = str(e)
