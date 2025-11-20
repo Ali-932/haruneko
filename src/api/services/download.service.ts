@@ -130,6 +130,35 @@ class DownloadService {
     }
 
     /**
+     * Extract chapter number from chapter title
+     * Examples:
+     * "Ch.001 - The Black Swordsman" -> "1"
+     * "Chapter 42.5" -> "42.5"
+     * "Vol.1 Chapter 3" -> "3"
+     */
+    private extractChapterNumber(chapterTitle: string): string {
+        // Try to find chapter number patterns
+        const patterns = [
+            /Ch\.?(\d+(?:\.\d+)?)/i,      // Ch.001, Ch.1, Ch.1.5
+            /Chapter\s*(\d+(?:\.\d+)?)/i,  // Chapter 1, Chapter 42.5
+            /^(\d+(?:\.\d+)?)/,            // Just a number at the start
+            /(\d+(?:\.\d+)?)/              // Any number as fallback
+        ];
+
+        for (const pattern of patterns) {
+            const match = chapterTitle.match(pattern);
+            if (match) {
+                // Remove leading zeros and return
+                const num = parseFloat(match[1]);
+                return num.toString();
+            }
+        }
+
+        // If no number found, return sanitized version of full title
+        return SanitizeFileName(chapterTitle);
+    }
+
+    /**
      * Download chapters and create export file
      */
     private async downloadAndExport(downloadId: string, request: DownloadRequest, chapters: any[], mangaTitle: string): Promise<string> {
@@ -191,23 +220,29 @@ class DownloadService {
                 logger.info(`Successfully downloaded ${resourceMap.size} pages for chapter: ${chapter.Title}`);
 
                 // Create export using appropriate exporter
+                // Extract chapter number for clean filename
+                const chapterNumber = this.extractChapterNumber(chapter.Title);
                 const sanitizedMangaId = SanitizeFileName(request.mangaId);
-                const sanitizedChapterTitle = SanitizeFileName(chapter.Title);
 
                 let outputPath: string;
                 let exporter;
 
                 if (format === 'cbz') {
-                    const fileName = `${sanitizedMangaId}_${sanitizedChapterTitle}_${Date.now()}.cbz`;
-                    outputPath = path.join(this.downloadDir, fileName);
+                    // Use clean format: chapter_1.cbz, chapter_2.cbz, etc.
+                    const fileName = `chapter_${chapterNumber}.cbz`;
+                    outputPath = path.join(this.downloadDir, sanitizedMangaId, fileName);
                     exporter = new NodeComicBookArchiveExporter(storageController);
                 } else if (format === 'images') {
-                    const dirName = `${sanitizedMangaId}_${sanitizedChapterTitle}_${Date.now()}.images`;
-                    outputPath = path.join(this.downloadDir, dirName);
+                    // Use clean format: chapter_1, chapter_2, etc.
+                    const dirName = `chapter_${chapterNumber}`;
+                    outputPath = path.join(this.downloadDir, sanitizedMangaId, dirName);
                     exporter = new NodeImageDirectoryExporter(storageController);
                 } else {
                     throw new Error(`Unsupported format: ${format}`);
                 }
+
+                // Ensure parent directory exists
+                await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
                 logger.info(`Exporting to ${format}: ${outputPath}`);
 
@@ -270,21 +305,30 @@ class DownloadService {
 
         // Find the file or directory using sanitized manga ID
         const sanitizedMangaId = SanitizeFileName(download.mangaId);
-        const entries = await fs.readdir(this.downloadDir, { withFileTypes: true });
+        const mangaDir = path.join(this.downloadDir, sanitizedMangaId);
 
-        // Look for files/directories that match the sanitized manga ID
-        const entry = entries.find((e) => e.name.includes(sanitizedMangaId));
-
-        if (!entry) {
-            logger.warn(`File/directory not found for download ${downloadId}, looking for: ${sanitizedMangaId}`);
-            logger.debug(`Available entries: ${entries.map(e => e.name).join(', ')}`);
+        // Check if manga directory exists
+        try {
+            await fs.access(mangaDir);
+        } catch {
+            logger.warn(`Manga directory not found for download ${downloadId}: ${mangaDir}`);
             throw Errors.NotFound('Download file');
         }
 
-        const filePath = path.join(this.downloadDir, entry.name);
+        // List all files/directories in the manga directory
+        const entries = await fs.readdir(mangaDir, { withFileTypes: true });
 
-        // For image directories, we might want to create a zip on-the-fly or return the directory
-        // For now, return the path as-is
+        if (entries.length === 0) {
+            logger.warn(`Manga directory is empty for download ${downloadId}: ${mangaDir}`);
+            throw Errors.NotFound('Download file');
+        }
+
+        // For single chapter downloads, return the first (and only) entry
+        // TODO: For multi-chapter downloads, we might need to zip all chapters together
+        const entry = entries[0];
+        const filePath = path.join(mangaDir, entry.name);
+
+        logger.debug(`Found download file: ${filePath}`);
         return filePath;
     }
 
