@@ -304,52 +304,19 @@ def main():
     print("CHAPTER PATTERN COLLECTION SCRIPT")
     print("="*70)
     print(f"Target: Collect chapter titles from ~{len(popular_manga)} manga titles")
+    print(f"Source: mangahere only")
     print(f"Chapters per manga: 3")
     print(f"Expected total chapters: ~{len(popular_manga) * 3}")
     print("="*70)
 
     collector = ChapterPatternCollector()
 
-    # Get available sources
-    print("\n[INFO] Fetching available sources...")
-    sources = collector.get_sources()
+    # Use only mangahere source
+    source = "mangahere"
+    print(f"\n[INFO] Using source: {source}")
 
-    if not sources:
-        print("[ERROR] No sources available. Make sure Haruneko server is running.")
-        return
-
-    print(f"[INFO] Found {len(sources)} sources: {', '.join(sources[:10])}{'...' if len(sources) > 10 else ''}")
-
-    # Select sources to use (prioritize popular ones)
-    priority_sources = ['mangahere', 'mangafox', 'mangareader', 'mangadex', 'mangakakalot']
-    selected_sources = [s for s in priority_sources if s in sources]
-
-    # Add other sources if we don't have enough
-    if len(selected_sources) < 3:
-        for source in sources:
-            if source not in selected_sources:
-                selected_sources.append(source)
-            if len(selected_sources) >= 5:
-                break
-
-    print(f"\n[INFO] Using sources: {', '.join(selected_sources)}")
-
-    # Distribute manga across sources to get variety
-    total_collected = 0
-    manga_per_source = len(popular_manga) // len(selected_sources)
-
-    for i, source in enumerate(selected_sources):
-        start_idx = i * manga_per_source
-        end_idx = start_idx + manga_per_source if i < len(selected_sources) - 1 else len(popular_manga)
-        manga_subset = popular_manga[start_idx:end_idx]
-
-        collected = collector.collect_from_source(source, manga_subset, chapters_per_manga=3)
-        total_collected += collected
-
-        print(f"\n[INFO] Collected {collected} manga from {source}")
-
-        # Rate limiting between sources
-        time.sleep(1)
+    # Collect from all manga on mangahere
+    total_collected = collector.collect_from_source(source, popular_manga, chapters_per_manga=3)
 
     # Save results
     collector.save_results("chapter_patterns.json")
