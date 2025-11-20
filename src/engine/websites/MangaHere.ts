@@ -27,18 +27,15 @@ export default class extends DecoratableMangaScraper /* MangaFox */ {
         const request = new Request(uri.href);
 
         const data = await FetchWindowScript<{ id: string, title: string }[]>(request, `
-            // Set the cookie again to ensure it's present
+            // Set the cookie to ensure 18+ content is accessible
             document.cookie = 'isAdult=1; path=/; max-age=31536000';
-
-            // Wait a bit for any dynamic content
-            await new Promise(resolve => setTimeout(resolve, 500));
 
             // Extract chapters
             return [...document.querySelectorAll('div#chapterlist ul li a')].map(a => ({
                 id: new URL(a.href).pathname,
                 title: a.textContent.trim()
             }));
-        `, 500);
+        `);
 
         return data.map(({ id, title }) => {
             const cleanTitle = title.replace(manga.Title, '').trim() || manga.Title;
