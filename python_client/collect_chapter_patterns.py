@@ -231,82 +231,11 @@ class ChapterPatternCollector:
 def main():
     """Main collection script"""
 
-    # Popular manga titles to search for
-    # This list is diverse to capture different naming patterns
-    popular_manga = [
-        # Battle Shounen
-        "One Piece", "Naruto", "Bleach", "Dragon Ball", "My Hero Academia",
-        "Demon Slayer", "Jujutsu Kaisen", "Chainsaw Man", "Hunter x Hunter",
-        "Fullmetal Alchemist", "Attack on Titan", "One Punch Man", "Fairy Tail",
-        "Black Clover", "Gintama", "Yu Yu Hakusho", "Rurouni Kenshin",
-
-        # Seinen
-        "Berserk", "Vagabond", "Vinland Saga", "Kingdom", "Tokyo Ghoul",
-        "Gantz", "Parasyte", "Monster", "20th Century Boys", "Pluto",
-        "Uzumaki", "Dorohedoro", "Claymore", "Hellsing", "Trigun",
-
-        # Romance/Drama
-        "Kaguya-sama", "Rent-a-Girlfriend", "Horimiya", "Domestic Girlfriend",
-        "Good Ending", "Nisekoi", "Toradora", "ReLife", "Kimi ni Todoke",
-        "Ao Haru Ride", "Orange", "Say I Love You", "Fruits Basket",
-
-        # Isekai/Fantasy
-        "Sword Art Online", "Re:Zero", "Overlord", "The Rising of the Shield Hero",
-        "That Time I Got Reincarnated as a Slime", "Mushoku Tensei",
-        "Solo Leveling", "The Beginning After The End", "Tower of God",
-
-        # Sports
-        "Haikyuu", "Slam Dunk", "Kuroko no Basket", "Eyeshield 21",
-        "Hajime no Ippo", "Prince of Tennis", "Diamond no Ace",
-        "Blue Lock", "Ashita no Joe",
-
-        # Slice of Life
-        "K-On", "Lucky Star", "Azumanga Daioh", "Yotsuba&!", "Barakamon",
-        "Silver Spoon", "March Comes in Like a Lion", "A Silent Voice",
-
-        # Mystery/Thriller
-        "Death Note", "Detective Conan", "Promised Neverland", "Erased",
-        "Psycho-Pass", "Another", "Higurashi", "Steins;Gate",
-
-        # Comedy
-        "Grand Blue", "Spy x Family", "Nichijou", "Daily Lives of High School Boys",
-        "Asobi Asobase", "Prison School", "Sket Dance",
-
-        # Horror
-        "Junji Ito Collection", "I Am a Hero", "Ajin", "Tokyo Ghoul",
-        "Deadman Wonderland", "Parasyte", "Corpse Party",
-
-        # Mecha
-        "Gundam", "Neon Genesis Evangelion", "Code Geass", "Gurren Lagann",
-        "Darling in the Franxx", "Full Metal Panic",
-
-        # Historical
-        "Vagabond", "Kingdom", "Vinland Saga", "Rurouni Kenshin",
-        "Golden Kamuy", "Arslan Senki",
-
-        # Webtoons/Manhwa
-        "Solo Leveling", "Tower of God", "The God of High School",
-        "Noblesse", "The Breaker", "Hardcore Leveling Warrior",
-        "Sweet Home", "Bastard", "Lookism",
-
-        # Classic
-        "Akira", "Ghost in the Shell", "Cowboy Bebop", "Trigun",
-        "Sailor Moon", "Dragon Ball", "Fist of the North Star",
-
-        # Other Popular
-        "Food Wars", "Dr. Stone", "Mob Psycho 100", "Fire Force",
-        "Assassination Classroom", "Noragami", "Blue Exorcist",
-        "Seven Deadly Sins", "Magi", "D.Gray-man", "Soul Eater",
-        "Toriko", "Beelzebub", "The World God Only Knows",
-    ]
-
     print("="*70)
     print("CHAPTER PATTERN COLLECTION SCRIPT")
     print("="*70)
-    print(f"Target: Collect chapter titles from ~{len(popular_manga)} manga titles")
     print(f"Source: mangahere only")
     print(f"Chapters per manga: 3")
-    print(f"Expected total chapters: ~{len(popular_manga) * 3}")
     print("="*70)
 
     collector = ChapterPatternCollector()
@@ -315,8 +244,50 @@ def main():
     source = "mangahere"
     print(f"\n[INFO] Using source: {source}")
 
+    # Fetch manga dynamically from the source using varied search queries
+    print("[INFO] Fetching manga titles from source...")
+
+    # Use common search terms to get diverse manga
+    search_terms = [
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+        "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+        "one", "two", "three", "love", "death", "life", "world", "hero",
+        "god", "demon", "dragon", "king", "queen", "blood", "dark", "light"
+    ]
+
+    manga_titles = []
+    seen_manga_ids = set()
+    target_manga_count = 150
+
+    for term in search_terms:
+        if len(manga_titles) >= target_manga_count:
+            break
+
+        print(f"[INFO] Searching with term: '{term}'")
+        results = collector.search_manga(term, source)
+
+        for manga in results:
+            manga_id = manga.get('id')
+            manga_title = manga.get('title')
+
+            # Skip duplicates
+            if manga_id in seen_manga_ids:
+                continue
+
+            seen_manga_ids.add(manga_id)
+            manga_titles.append(manga_title)
+
+            if len(manga_titles) >= target_manga_count:
+                break
+
+        # Rate limiting
+        time.sleep(0.3)
+
+    print(f"\n[INFO] Fetched {len(manga_titles)} unique manga titles from {source}")
+    print(f"[INFO] Expected total chapters: ~{len(manga_titles) * 3}")
+
     # Collect from all manga on mangahere
-    total_collected = collector.collect_from_source(source, popular_manga, chapters_per_manga=3)
+    total_collected = collector.collect_from_source(source, manga_titles, chapters_per_manga=3)
 
     # Save results
     collector.save_results("chapter_patterns.json")
