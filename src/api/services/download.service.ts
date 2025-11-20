@@ -104,6 +104,7 @@ class DownloadService {
             this.updateDownloadStatus(downloadId, {
                 status: 'processing',
                 progress: 0,
+                mangaTitle: manga.Title,
             });
 
             // Download chapters and create export
@@ -222,20 +223,21 @@ class DownloadService {
                 // Create export using appropriate exporter
                 // Extract chapter number for clean filename
                 const chapterNumber = this.extractChapterNumber(chapter.Title);
-                const sanitizedMangaId = SanitizeFileName(request.mangaId);
+                // Use clean manga title for folder name instead of manga ID
+                const sanitizedMangaTitle = SanitizeFileName(mangaTitle);
 
                 let outputPath: string;
                 let exporter;
 
                 if (format === 'cbz') {
-                    // Use clean format: chapter_1.cbz, chapter_2.cbz, etc.
+                    // Use clean format: berserk/chapter_1.cbz, berserk/chapter_2.cbz, etc.
                     const fileName = `chapter_${chapterNumber}.cbz`;
-                    outputPath = path.join(this.downloadDir, sanitizedMangaId, fileName);
+                    outputPath = path.join(this.downloadDir, sanitizedMangaTitle, fileName);
                     exporter = new NodeComicBookArchiveExporter(storageController);
                 } else if (format === 'images') {
-                    // Use clean format: chapter_1, chapter_2, etc.
+                    // Use clean format: berserk/chapter_1, berserk/chapter_2, etc.
                     const dirName = `chapter_${chapterNumber}`;
-                    outputPath = path.join(this.downloadDir, sanitizedMangaId, dirName);
+                    outputPath = path.join(this.downloadDir, sanitizedMangaTitle, dirName);
                     exporter = new NodeImageDirectoryExporter(storageController);
                 } else {
                     throw new Error(`Unsupported format: ${format}`);
@@ -303,9 +305,12 @@ class DownloadService {
             throw Errors.BadRequest('Download is not completed yet');
         }
 
-        // Find the file or directory using sanitized manga ID
-        const sanitizedMangaId = SanitizeFileName(download.mangaId);
-        const mangaDir = path.join(this.downloadDir, sanitizedMangaId);
+        // Use manga title for folder name (clean), fallback to manga ID if title not available
+        const folderName = download.mangaTitle
+            ? SanitizeFileName(download.mangaTitle)
+            : SanitizeFileName(download.mangaId);
+
+        const mangaDir = path.join(this.downloadDir, folderName);
 
         // Check if manga directory exists
         try {
