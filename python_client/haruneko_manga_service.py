@@ -283,7 +283,8 @@ class HarunekoMangaService:
         manga_id: str,
         chapter_id: str,
         source: str,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
+        format: str = 'cbz'
     ) -> Dict:
         """
         Queue a chapter for download via Haruneko download API
@@ -293,19 +294,23 @@ class HarunekoMangaService:
             chapter_id: Chapter identifier
             source: Source identifier
             output_path: Optional output path for download
+            format: Download format - 'cbz', 'pdf', 'epub', or 'images' (default: 'cbz')
 
         Returns:
             Download queue response with download ID
         """
         def _make_request():
+            # API expects sourceId, mangaId, and chapterIds (array)
             payload = {
-                "source": source,
+                "sourceId": source,
                 "mangaId": manga_id,
-                "chapterId": chapter_id
+                "chapterIds": [chapter_id],  # Must be an array
+                "format": format
             }
             if output_path:
                 payload["outputPath"] = output_path
 
+            print(f"[DEBUG] Queue download payload: {payload}")
             resp = self.session.post(
                 f"{self.base_url}/api/v1/downloads",
                 json=payload,

@@ -50,6 +50,7 @@ export interface DownloadStatus {
     id: string;
     sourceId: string;
     mangaId: string;
+    mangaTitle?: string;
     chapterIds: string[];
     status: 'queued' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled';
     progress: number;
