@@ -25,7 +25,7 @@ A production-grade REST API for downloading manga from 788+ sources with built-i
 #### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Ali-932/haruneko-api
 cd haruneko
 ```
 
